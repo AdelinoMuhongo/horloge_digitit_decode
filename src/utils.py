@@ -79,6 +79,7 @@ def median_filter(gray, ksize=11):
             median_img[i, j] = median
     return median_img
 
+
 def _morpho_dilatation(binary_img, radius=2):
     """
     Realise une dilataion sur une image binaire
@@ -221,7 +222,6 @@ def _find_obj_contour(binary_img, foreground_val=1):
         p = start_point
         prev = p[0] - 1, p[1]
         c = _next_neighbor(p, prev)
-        count = 0
         while c != start_point:
 
             if binary_img[c[0], c[1]] == foreground_val:
@@ -297,6 +297,3 @@ def compare_digits(binary_img):
             best_matching_percent = current_matching_percent
             matched_digit = i
     return [matched_digit, best_matching_percent]
-
-
-
