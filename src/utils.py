@@ -6,6 +6,13 @@ INSA Rouen PERFNII - IPN02
 cree le 01/06/2022
 
 Script contenant toutes les fonctions utiles pour le traitement de l'image
+
+Points clés :   - Dilatation morphologique
+                - Moore-neighbor algorithm
+                - RBG to HSV
+                - Filtre median
+                - Operation binaires ( bitwise XOR and AND)
+
 """
 
 import numpy as np
@@ -75,7 +82,6 @@ def median_filter(gray, ksize=11):
         for j in range(offset, gray.shape[1] - offset):
             m_values = np.ravel(gray[i - offset: i + offset + 1, j - offset: j + offset + 1])
             median = np.uint8(np.median(m_values))
-            # median = np.sort(kernel)[np.uint8(np.divide((np.multiply(ksize, ksize)), 2) + 1)]
             median_img[i, j] = median
     return median_img
 
@@ -138,14 +144,13 @@ def _rect_bounded_area(points):
 
 def _extract_temp_humidity_region(cropped):
     """
-      Extrait la region temps sur l'image
-      x0 = 65% largeur  et xn = 95% largeur
-      de la largeur de l'image pre-decoupé
+      Extrait la region temps sur l'image x0 = 70% largeur
+      et xn = 93% largeur de la largeur de l'image pre-decoupé
     """
     _, width = cropped.shape
-    w0 = int(width * 70 / 100)
-    wn = int(width * 93 / 100)
-    return cropped[:, w0:wn]
+    x0 = int(width * 70 / 100)
+    y0 = int(width * 93 / 100)
+    return cropped[:, x0:y0]
 
 
 def _extract_time_region(cropped):
@@ -154,19 +159,28 @@ def _extract_time_region(cropped):
     x0 = 0  et xn = 54% de la largeur
     """
     _, width = cropped.shape
-    w = int(width * 54 / 100)
-    return cropped[:, :w]
+    xn = int(width * 54 / 100)
+    return cropped[:, :xn]
 
 
 def regions_of_interest(binary_img, foreground_val=1):
     """ Permet d'extraire les regions utiles qui devront être traitées """
 
     regions = {'time': None, 'temp': None, 'humidity': None}
+
+    # Definition et rognage de la region d'interêt de l'image
     fg_pixels = list(zip(*np.where(binary_img == foreground_val)))
     row, col, height, width = _rect_bounded_area(fg_pixels)
     cropped = _crop(binary_img, row, col, height, width)
+
+    # On extrait la region 'temps', on applique une dilatation (pour bien souder les objets uniques)
+    # et on applique un padding, pour ne pas avoir des objets a l'extremite
+    # (utile pour l'algorithme de recherche des contours )
     regions['time'] = np.pad(_morpho_dilatation(_extract_time_region(cropped)), 1, constant_values=0)
+
+    # region temperature - humidite
     th_region = _morpho_dilatation(_extract_temp_humidity_region(cropped))
+
     height, _ = th_region.shape
     h = int(height * 50 / 100)
     regions['humidity'] = np.pad(th_region[:h, :], 1, constant_values=0)
@@ -202,6 +216,10 @@ def _moore_neighbor(central_pixel):
 
 
 def _next_neighbor(central_pixel, neighbor):
+    """
+    Permet de trouver le prochain pixel voisin
+    en suivant le sens horaire
+    """
     neighbors = _moore_neighbor(central_pixel)
     idx = neighbors.index(neighbor)
     idx = (idx + 1) % 8
@@ -244,20 +262,24 @@ def _delete_object(binary_img, area):
     y0, x0, height, width = area
     xn, yn = x0 + width + 1, y0 + height + 1
 
+    # On supprime l'objet qui a deja ete detecte sur l'image
     binary_img[y0: yn, x0:xn] = 0
 
     return (y0, x0), (yn, xn)
 
 
 def find_contours(imx, foreground_val=1):
+    """
+    Permet de rechercher tous les objets sur l'image,
+    representés par des contours en rectangle
+    """
+
     im = np.copy(imx)
     rect_contours = []
     empty = False
     while not empty:
         contour = _find_obj_contour(im, foreground_val)
         if contour:
-            if len(contour) >= 8:
-                pass
             area = _rect_bounded_area(contour)
             r = _delete_object(im, area)
             rect_contours.append(r)
