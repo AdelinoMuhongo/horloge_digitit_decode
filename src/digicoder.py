@@ -52,10 +52,12 @@ class ClockDigiCoder:
         thresh = utils.threshold(gray)
         binary = (gray >= thresh).astype(np.uint8)
 
-        # Application d'un filtre median pour eliminer
-        # pour lisser l'image et eliminer quelques parasites
-        _logger.info("Filtrage et definition de la région d'intérêt\n")
+        # Application d'un filtre median pour
+        # lisser l'image et eliminer quelques parasites
+        _logger.info("Filtrage : application d'un filtre median")
         self._binary_img = utils.median_filter(binary, 3)
+
+        _logger.info("Extraction des regions utiles: température, temps et humidité")
         self._regions = utils.regions_of_interest(self._binary_img)
 
     def _extact_data(self, region_name):

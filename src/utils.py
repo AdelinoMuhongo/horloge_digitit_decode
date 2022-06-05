@@ -7,11 +7,12 @@ cree le 01/06/2022
 
 Script contenant toutes les fonctions utiles pour le traitement de l'image
 
-Points clés :   - Dilatation morphologique
+Points clés :   - Seuillage automatique (méthode de 'OTSU')
+                - Dilatation morphologique
                 - Moore-neighbor algorithm
-                - RBG to HSV
-                - Filtre median
-                - Operation binaires ( bitwise XOR and AND)
+                - Espace couleur HSV
+                - Filtre médian
+                - Opérations booléennes ( bitwise XOR and AND)
 
 """
 
@@ -28,21 +29,21 @@ def luminance(im):
     return np.maximum(np.maximum(r, g), b).astype(np.uint8)
 
 
-def _compute_otsu_criteria(binary_img, thresh):
+def _compute_otsu_criteria(gray, thresh):
     # Creation d'une image seuil
-    thresh_img = np.zeros(binary_img.shape)
-    thresh_img[binary_img >= thresh] = 1
+    thresh_img = np.zeros(gray.shape)
+    thresh_img[gray >= thresh] = 1
 
     nb_pixels1 = np.count_nonzero(thresh_img)
-    w1 = nb_pixels1 / binary_img.size  # Proportion des pixels = 1
+    w1 = nb_pixels1 / gray.size  # Proportion des pixels = 1
     w0 = 1 - w1  # Proportion des pixels = 0
 
     # les valeurs nulles ne seront pas consideré dans le calcul du meilleur seuil
     if w1 == 0 or w0 == 0:
         return np.inf
 
-    val_pixels1 = binary_img[thresh_img == 1]  # Extraction des pixels = 1
-    val_pixels0 = binary_img[thresh_img == 0]  # Extraction des pixels = 0
+    val_pixels1 = gray[thresh_img == 1]  # Extraction des pixels = 1
+    val_pixels0 = gray[thresh_img == 0]  # Extraction des pixels = 0
 
     # Recherche des variances
     var0 = np.var(val_pixels0) if len(val_pixels0) > 0 else 0
@@ -51,38 +52,50 @@ def _compute_otsu_criteria(binary_img, thresh):
     return w0 * var0 + w1 * var1
 
 
-def threshold(img):
+def threshold(gray):
     """
     Cette fonction permet de trouver le niveau de seuil qui génère la meilleure
     classification des pixels d'une image, en utilisant la methode de 'Otsu'
 
-    :param img: tableau numpy representant l'image
+    :param gray: tableau numpy representant l'image
 
     ref : https://en.wikipedia.org/wiki/Otsu%27s_method
 
     """
-    threshold_range = range(np.max(img) + 1)
-    criterias = [_compute_otsu_criteria(img, th) for th in threshold_range]
+    threshold_range = range(np.max(gray) + 1)
+    criterias = [_compute_otsu_criteria(gray, th) for th in threshold_range]
 
     # best threshold is the one minimizing the Otsu criteria
     return threshold_range[np.argmin(criterias)]
 
 
-def median_filter(gray, ksize=11):
+def median_filter(gray, ksize=5, padding_mode='constant'):
     """
-    Retourne une image avec un filtre median applique dessus
+    Retourne une image avec un filtre médian appliqué dessus
 
     :param gray: tableau numpy representant l'image en niveau gris
     :param ksize: la taille du mask
+    :param padding_mode : mode de remplissage des extremités (cfr: numpy.pad)
     """
-    # ajout d'un offset pour delimiter les bords (le filtre n'est pas applique sur les bords)
+
+    if ksize % 2 == 0 or ksize == 1:
+        raise ValueError('kernel must be a positif odd value')
+
+    height, width = gray.shape[:2]
     offset = int(ksize / 2)
+
+    if padding_mode == 'constant':
+        img_padded = np.pad(gray, offset, constant_values=0)
+    elif padding_mode == 'edge':
+        img_padded = np.pad(gray, offset, mode='edge')
+    else:
+        raise ValueError("padding mode must be 'constant' or 'edge'")
+
     median_img = np.zeros_like(gray)
-    for i in range(offset, gray.shape[0] - offset):
-        for j in range(offset, gray.shape[1] - offset):
-            m_values = np.ravel(gray[i - offset: i + offset + 1, j - offset: j + offset + 1])
-            median = np.uint8(np.median(m_values))
-            median_img[i, j] = median
+    for i in range(height):
+        for j in range(width):
+            m_values = img_padded[i:i + ksize, j:j + ksize].flatten()
+            median_img[i, j] = np.sort(m_values)[(ksize * ksize) // 2]
     return median_img
 
 

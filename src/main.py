@@ -16,7 +16,6 @@ if __name__ == '__main__':
     cdc = ClockDigiCoder(img)
     cdc.decode()
 
-    print()
     _logger.info("####### Resultats #######\n")
     _logger.info(f"Heure : {cdc.time}")
     _logger.info(f"Temperature : {cdc.temperature} °C")
