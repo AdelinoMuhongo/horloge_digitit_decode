@@ -61,7 +61,7 @@ def threshold(img):
     return threshold_range[np.argmin(criterias)]
 
 
-def median_filter(gray, ksize=3):
+def median_filter(gray, ksize=11):
     """
     Retourne une image avec un filtre median applique dessus
 
@@ -78,6 +78,22 @@ def median_filter(gray, ksize=3):
             # median = np.sort(kernel)[np.uint8(np.divide((np.multiply(ksize, ksize)), 2) + 1)]
             median_img[i, j] = median
     return median_img
+
+def _morpho_dilatation(binary_img, radius=2):
+    """
+    Realise une dilataion sur une image binaire
+
+    ref: https://en.wikipedia.org/wiki/Dilation_(morphology)
+    """
+
+    row, col = binary_img.shape
+    result = np.copy(binary_img)
+
+    for i in range(radius, row - radius):
+        for j in range(radius, col - radius):
+            m = binary_img[i - radius: i + radius + 1, j - radius:j + radius + 1]
+            result[i, j] = np.amax(m)
+    return result
 
 
 # #################### FONCTIONS DE TRANSFORMATION GEOMETRIQUE #############
@@ -107,7 +123,7 @@ def _crop(im, row, col, height, width):
     return im[row:row + height, col:col + width]
 
 
-# #################### FONCTIONS RECHERCHES CONTOURS #######################
+# #################### FONCTIONS RECHERCHES CONTOURS ET DETECTION D'OJETS ###
 # --------------------------------------------------------------------------
 
 def _rect_bounded_area(points):
@@ -119,15 +135,23 @@ def _rect_bounded_area(points):
     return row, col, height, width
 
 
-def _extract_humidy_region(cropped):
-    pass
-
-
-def _extract_temp_region(cropped):
-    pass
+def _extract_temp_humidity_region(cropped):
+    """
+      Extrait la region temps sur l'image
+      x0 = 65% largeur  et xn = 95% largeur
+      de la largeur de l'image pre-decoupé
+    """
+    _, width = cropped.shape
+    w0 = int(width * 70 / 100)
+    wn = int(width * 93 / 100)
+    return cropped[:, w0:wn]
 
 
 def _extract_time_region(cropped):
+    """
+    Extrait la region temps sur l'image
+    x0 = 0  et xn = 54% de la largeur
+    """
     _, width = cropped.shape
     w = int(width * 54 / 100)
     return cropped[:, :w]
@@ -136,13 +160,16 @@ def _extract_time_region(cropped):
 def regions_of_interest(binary_img, foreground_val=1):
     """ Permet d'extraire les regions utiles qui devront être traitées """
 
-    regions = {'time': None, 'temp': None, 'humdity': None}
-
+    regions = {'time': None, 'temp': None, 'humidity': None}
     fg_pixels = list(zip(*np.where(binary_img == foreground_val)))
     row, col, height, width = _rect_bounded_area(fg_pixels)
     cropped = _crop(binary_img, row, col, height, width)
-
-    regions['time'] = _extract_time_region(cropped)
+    regions['time'] = np.pad(_morpho_dilatation(_extract_time_region(cropped)), 1, constant_values=0)
+    th_region = _morpho_dilatation(_extract_temp_humidity_region(cropped))
+    height, _ = th_region.shape
+    h = int(height * 50 / 100)
+    regions['humidity'] = np.pad(th_region[:h, :], 1, constant_values=0)
+    regions['temp'] = np.pad(th_region[h:, :], 1, constant_values=0)
 
     return regions
 
@@ -194,10 +221,10 @@ def _find_obj_contour(binary_img, foreground_val=1):
         p = start_point
         prev = p[0] - 1, p[1]
         c = _next_neighbor(p, prev)
+        count = 0
         while c != start_point:
-            print(c)
+
             if binary_img[c[0], c[1]] == foreground_val:
-                # print(contour_pixels)
                 contour_pixels.append(c)
                 p = c
                 c = prev
@@ -248,7 +275,7 @@ def compare_digits(binary_img):
     :return: le chiffre avec le meilleur pourcentage de correspondance
     """
 
-    best_matching_percent = 0
+    best_matching_percent = -1
     matched_digit = -1
     digits = [v[1:-1, 1:-1] for _, v in const.DIGITS.items()]
     for i, digit in enumerate(digits):
@@ -269,4 +296,7 @@ def compare_digits(binary_img):
         if best_matching_percent < current_matching_percent:
             best_matching_percent = current_matching_percent
             matched_digit = i
-    return matched_digit
+    return [matched_digit, best_matching_percent]
+
+
+
