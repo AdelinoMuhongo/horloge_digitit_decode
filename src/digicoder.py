@@ -44,12 +44,16 @@ class ClockDigiCoder:
 
         # Extraction de la luminance : canal V (HSV)
         _logger.info('Niveau gris : extraction de la luminance (canal V : HSV) ')
+        import matplotlib.pyplot as plt
         gray = utils.luminance(clock_image)
+        # plt.imshow(gray, cmap='gray')
+        # plt.show()
 
         # Recherche et application d'un seuil
         _logger.info("Segmentation de l'image: recherche et application d'un seuil automatique")
-        thresh = utils.threshold(gray)
-        binary = (gray >= thresh).astype(np.uint8)
+
+        # Préferable d'utiliser des méthodes automatiques telles que 'OTSU'
+        binary = (gray >= 130).astype(np.uint8)
 
         # Application d'un filtre median pour
         # lisser l'image et eliminer quelques parasites

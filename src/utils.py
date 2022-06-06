@@ -7,8 +7,7 @@ cree le 01/06/2022
 
 Script contenant toutes les fonctions utiles pour le traitement de l'image
 
-Points clés :   - Seuillage automatique (méthode de 'OTSU')
-                - Dilatation morphologique
+Points clés :   - Dilatation morphologique
                 - Moore-neighbor algorithm
                 - Espace couleur HSV
                 - Filtre médian
@@ -25,48 +24,6 @@ def luminance(im):
     r, g, b = im[..., 0], im[..., 1], im[..., 2]
 
     return np.maximum(np.maximum(r, g), b).astype(np.uint8)
-
-
-# ## SEGMENTATION
-# ---------------
-
-def _compute_otsu_criteria(gray, thresh):
-    # Creation d'une image seuil
-    thresh_img = np.zeros(gray.shape)
-    thresh_img[gray >= thresh] = 1
-
-    nb_pixels1 = np.count_nonzero(thresh_img)
-    w1 = nb_pixels1 / gray.size  # Proportion des pixels = 1
-    w0 = 1 - w1  # Proportion des pixels = 0
-
-    # les valeurs nulles ne seront pas consideré dans le calcul du meilleur seuil
-    if w1 == 0 or w0 == 0:
-        return np.inf
-
-    val_pixels1 = gray[thresh_img == 1]  # Extraction des pixels = 1
-    val_pixels0 = gray[thresh_img == 0]  # Extraction des pixels = 0
-
-    # Recherche des variances
-    var0 = np.var(val_pixels0) if len(val_pixels0) > 0 else 0
-    var1 = np.var(val_pixels1) if len(val_pixels1) > 0 else 0
-
-    return w0 * var0 + w1 * var1
-
-
-def threshold(gray):
-    """
-    Cette fonction permet de trouver le niveau de seuil qui génère la meilleure
-    classification des pixels d'une image, en utilisant la methode de 'Otsu'
-
-    :param gray: tableau numpy representant l'image
-
-    ref : https://en.wikipedia.org/wiki/Otsu%27s_method
-
-    """
-    threshold_range = range(np.max(gray) + 1)
-    criterias = [_compute_otsu_criteria(gray, th) for th in threshold_range]
-
-    return threshold_range[np.argmin(criterias)]
 
 
 # ## REDUCTION DES BRUIS, LISSAGE ET TRANSFORMATION  MORPHOLOGIQUE
