@@ -20,14 +20,15 @@ import numpy as np
 import const
 
 
-# #################### FONCTIONS PRE-TAITEMENT #############################
-# --------------------------------------------------------------------------
-
 def luminance(im):
+    """ Permet d'extraire la luminance d'une image :  canal V (HSV) """
     r, g, b = im[..., 0], im[..., 1], im[..., 2]
 
     return np.maximum(np.maximum(r, g), b).astype(np.uint8)
 
+
+# ## SEGMENTATION
+# ---------------
 
 def _compute_otsu_criteria(gray, thresh):
     # Creation d'une image seuil
@@ -65,9 +66,11 @@ def threshold(gray):
     threshold_range = range(np.max(gray) + 1)
     criterias = [_compute_otsu_criteria(gray, th) for th in threshold_range]
 
-    # best threshold is the one minimizing the Otsu criteria
     return threshold_range[np.argmin(criterias)]
 
+
+# ## REDUCTION DES BRUIS, LISSAGE ET TRANSFORMATION  MORPHOLOGIQUE
+# ----------------------------------------------------------------
 
 def median_filter(gray, ksize=5, padding_mode='constant'):
     """
@@ -79,7 +82,7 @@ def median_filter(gray, ksize=5, padding_mode='constant'):
     """
 
     if ksize % 2 == 0 or ksize == 1:
-        raise ValueError('kernel must be a positif odd value')
+        raise ValueError('La taille du masque doit être positive et impaire')
 
     height, width = gray.shape[:2]
     offset = int(ksize / 2)
@@ -89,7 +92,7 @@ def median_filter(gray, ksize=5, padding_mode='constant'):
     elif padding_mode == 'edge':
         img_padded = np.pad(gray, offset, mode='edge')
     else:
-        raise ValueError("padding mode must be 'constant' or 'edge'")
+        raise ValueError("Le mode de remplissage doit etre 'constant' or 'edge'")
 
     median_img = np.zeros_like(gray)
     for i in range(height):
@@ -101,7 +104,7 @@ def median_filter(gray, ksize=5, padding_mode='constant'):
 
 def _morpho_dilatation(binary_img, radius=2):
     """
-    Realise une dilataion sur une image binaire
+    Réalise une dilatation morphologique sur une image binaire
 
     ref: https://en.wikipedia.org/wiki/Dilation_(morphology)
     """
@@ -116,8 +119,8 @@ def _morpho_dilatation(binary_img, radius=2):
     return result
 
 
-# #################### FONCTIONS DE TRANSFORMATION GEOMETRIQUE #############
-# --------------------------------------------------------------------------
+# ## TRANSFORMATIONS GEOMETRIQUES ET EXTRACTION DES ZONES UTILES
+# --------------------------------------------------------------
 
 def _resize(binary_img, new_size):
     h, w = binary_img.shape[:2]
@@ -143,9 +146,6 @@ def _crop(im, row, col, height, width):
     return im[row:row + height, col:col + width]
 
 
-# #################### FONCTIONS RECHERCHES CONTOURS ET DETECTION D'OJETS ###
-# --------------------------------------------------------------------------
-
 def _rect_bounded_area(points):
     row = min([i for i, _ in points])
     col = min([i for _, i in points])
@@ -157,13 +157,13 @@ def _rect_bounded_area(points):
 
 def _extract_temp_humidity_region(cropped):
     """
-      Extrait la region temps sur l'image x0 = 70% largeur
-      et xn = 93% largeur de la largeur de l'image pre-decoupé
+    Extrait la region temps sur l'image x0 = 70% largeur
+    et xn = 93% largeur de la largeur de l'image pre-decoupé
     """
     _, width = cropped.shape
     x0 = int(width * 70 / 100)
-    y0 = int(width * 93 / 100)
-    return cropped[:, x0:y0]
+    xn = int(width * 93 / 100)
+    return cropped[:, x0:xn]
 
 
 def _extract_time_region(cropped):
@@ -201,6 +201,9 @@ def regions_of_interest(binary_img, foreground_val=1):
 
     return regions
 
+
+# ## RECHERCHE ET IDENTIFICATION DES OBJETS (CHIFFRES)
+# ----------------------------------------------------
 
 def _find_start_point(binary_img, foreground_val):
     """
@@ -242,7 +245,7 @@ def _next_neighbor(central_pixel, neighbor):
 
 def _find_obj_contour(binary_img, foreground_val=1):
     """
-    Retourne les points representants le contour de l'objet trouvé
+    Retourne les points représentant le contour de l'objet trouvé
 
     ref: https://en.wikipedia.org/wiki/Moore_neighborhood
     """
@@ -268,8 +271,8 @@ def _find_obj_contour(binary_img, foreground_val=1):
 
 def _delete_object(binary_img, area):
     """
-    Supprime un objet detecté sur l'image en
-    transformant sa surface délimité en noir
+    Supprime un objet detecté sur l'image
+    en transformant sa surface en noir
     """
 
     y0, x0, height, width = area
@@ -281,19 +284,22 @@ def _delete_object(binary_img, area):
     return (y0, x0), (yn, xn)
 
 
-def find_contours(imx, foreground_val=1):
+def find_contours(binary_img, foreground_val=1):
     """
     Permet de rechercher tous les objets sur l'image,
     representés par des contours en rectangle
     """
 
-    im = np.copy(imx)
+    im = np.copy(binary_img)
+
+    # Liste contenant tous les contours (definis par un carré) des objets détectés
     rect_contours = []
     empty = False
     while not empty:
         contour = _find_obj_contour(im, foreground_val)
         if contour:
             area = _rect_bounded_area(contour)
+            # On retire l'objet qui a déjà été détecté
             r = _delete_object(im, area)
             rect_contours.append(r)
 
@@ -325,7 +331,7 @@ def compare_digits(binary_img):
         # permet de garder que la region d'interet
         bitwise = np.bitwise_and(digit, xor_diff)
 
-        # le resultat est donné par la plus grosse perte de pixel blanc
+        # le résultat est donné par la plus grosse perte de pixel blanc
         before = np.sum(digit == 1)
         current_matching_percent = 100 - (np.sum(bitwise == 1) / before * 100)
         if best_matching_percent < current_matching_percent:

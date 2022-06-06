@@ -8,7 +8,7 @@ import logging
 from digicoder import ClockDigiCoder
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
-_logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 if __name__ == '__main__':
     img = plt.imread("../images/horloge2.jpg")
@@ -16,7 +16,7 @@ if __name__ == '__main__':
     cdc = ClockDigiCoder(img)
     cdc.decode()
 
-    _logger.info("####### Resultats #######\n")
-    _logger.info(f"Heure : {cdc.time}")
-    _logger.info(f"Temperature : {cdc.temperature} °C")
-    _logger.info(f"Humidité : {cdc.humidity} %")
+    logger.info("####### Resultats #######\n")
+    logger.info(f"Heure : {cdc.time}")
+    logger.info(f"Temperature : {cdc.temperature} °C")
+    logger.info(f"Humidité : {cdc.humidity} %")

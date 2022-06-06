@@ -41,7 +41,6 @@ class ClockDigiCoder:
     # ## PRIVATES
     # -----------
     def _initialize(self, clock_image):
-        _logger.info('######## Pre-traitement ########\n')
 
         # Extraction de la luminance : canal V (HSV)
         _logger.info('Niveau gris : extraction de la luminance (canal V : HSV) ')
