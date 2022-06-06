@@ -204,7 +204,8 @@ def _find_obj_contour(binary_img, foreground_val=1):
     """
     Retourne les points représentant le contour de l'objet trouvé
 
-    ref: https://en.wikipedia.org/wiki/Moore_neighborhood
+    ref :  - https://en.wikipedia.org/wiki/Moore_neighborhood
+           - https://www.imageprocessingplace.com/downloads_V3/root_downloads/tutorials/contour_tracing_Abeer_George_Ghuneim/moore.html
     """
     contour_pixels = []
     start_point = _find_start_point(binary_img, foreground_val)
